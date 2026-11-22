@@ -28,6 +28,7 @@ export const placementResultStatuses = ['Chờ đánh giá', 'Đã tư vấn', '
 
 export const menuItemData = [
   { label: 'Tổng quan', path: '/dashboard', icon: 'LayoutDashboard', badge: null },
+  { label: 'Chấm công', path: '/cham-cong', icon: 'Fingerprint', badge: null },
   { label: 'Ứng viên tiềm năng', path: '/ung-vien-tiem-nang', icon: 'UsersRound', badge: '4' },
   { label: 'Lịch hẹn', path: '/lich-hen', icon: 'CalendarDays', badge: null },
   { label: 'Khóa học', path: '/khoa-hoc', icon: 'BookOpen', badge: null },

@@ -9,6 +9,7 @@ import { EnrollmentPage } from '../pages/Enrollment/EnrollmentPage.jsx'
 import { ClassesPage } from '../pages/Classes/ClassesPage.jsx'
 import { PlacementTestsPage } from '../pages/PlacementTests/PlacementTestsPage.jsx'
 import { ProfilePage } from '../pages/Profile/ProfilePage.jsx'
+import { AttendancePage } from '../pages/Attendance/AttendancePage.jsx'
 import { ProtectedRoute } from './ProtectedRoute.jsx'
 
 export const router = createBrowserRouter([
@@ -18,6 +19,7 @@ export const router = createBrowserRouter([
     element: <ProtectedRoute><MainLayout /></ProtectedRoute>,
     children: [
       { path: '/dashboard', element: <DashboardPage /> },
+      { path: '/cham-cong', element: <AttendancePage /> },
       { path: '/ung-vien-tiem-nang', element: <PotentialCandidatesPage /> },
       { path: '/crm-khach-hang', element: <Navigate to="/ung-vien-tiem-nang" replace /> },
       { path: '/lich-goi', element: <Navigate to="/ung-vien-tiem-nang" replace /> },
