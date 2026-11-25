@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { PotentialCandidateDetailModal } from '../../components/PotentialCandidates/PotentialCandidateDetailModal.jsx'
@@ -15,6 +15,7 @@ import {
   emptyCandidateForm,
 } from '../../datas/potentialCandidatesData.js'
 import { createAppointment } from '../../services/appointmentsApi.js'
+import { useResourceUpdates } from '../../services/realtime.js'
 import {
   createPotentialCandidate,
   deletePotentialCandidate,
@@ -233,16 +234,20 @@ export const PotentialCandidatesPage = () => {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [reloadKey, setReloadKey] = useState(0)
   const [page, setPage] = useState(1)
+  // Lần tải do realtime không bật loading/toast để bảng không nhấp nháy.
+  const silentReload = useRef(false)
 
   useEffect(() => {
     const controller = new AbortController()
+    const silent = silentReload.current
+    silentReload.current = false
     const loadCandidates = async () => {
-      setIsLoading(true)
+      if (!silent) setIsLoading(true)
       try {
         const result = await getAllPotentialCandidates({ sortBy: 'createdAt', sortOrder: 'desc' }, controller.signal)
         setCandidates(result.map(normalizeCandidate))
       } catch (error) {
-        if (error.code !== 'ERR_CANCELED') {
+        if (error.code !== 'ERR_CANCELED' && !silent) {
           toast.error(getApiErrorMessage(error, t('Không thể tải danh sách ứng viên.'), t))
         }
       } finally {
@@ -258,6 +263,11 @@ export const PotentialCandidatesPage = () => {
   }, [reloadKey, setCandidates, t])
 
   const reloadCandidates = () => setReloadKey((current) => current + 1)
+
+  useResourceUpdates(() => {
+    silentReload.current = true
+    reloadCandidates()
+  }, ['potential-candidates', 'appointments'], !isSubmitting)
 
   const overviewCards = useMemo(() => {
     const counts = Object.fromEntries(overviewStages.map((stage) => [stage.id, 0]))

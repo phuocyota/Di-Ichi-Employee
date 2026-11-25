@@ -6,6 +6,7 @@ import { CheckInPhotoDialog } from '../../components/Attendance/CheckInPhotoDial
 import { ShiftCheckCard } from '../../components/Attendance/ShiftCheckCard.jsx'
 import { Button } from '../../components/Common/Button.jsx'
 import { Card } from '../../components/Common/Card.jsx'
+import { useResourceUpdates } from '../../services/realtime.js'
 import { checkInShift, checkOutShift, getMyTodayShifts } from '../../services/workShiftApi.js'
 
 const getApiErrorMessage = (error, t) => {
@@ -56,6 +57,9 @@ export const AttendancePage = () => {
       })
     return () => controller.abort()
   }, [t])
+
+  // Quản trị viên phân ca/điều chỉnh công thì tải lại ngầm; tạm dừng khi đang check-in/check-out.
+  useResourceUpdates(async () => setData(await getMyTodayShifts()), ['work-shifts', 'attendance-record'], !busyId && !photoShift)
 
   const run = async (shift, action, message) => {
     setBusyId(shift.id)

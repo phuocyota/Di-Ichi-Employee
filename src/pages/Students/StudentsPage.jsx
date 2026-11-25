@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronLeft, ChevronRight, Filter, Search } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import dayjs from 'dayjs'
@@ -7,6 +7,7 @@ import { Button } from '../../components/Common/Button.jsx'
 import { Card } from '../../components/Common/Card.jsx'
 import { DataTable } from '../../components/Common/DataTable.jsx'
 import { translateStatic } from '../../i18n/translateStatic.js'
+import { useResourceUpdates } from '../../services/realtime.js'
 import { getStudents, studentStatusLabels, studentStatusTones } from '../../services/studentsApi.js'
 
 const PAGE_SIZE = 20
@@ -29,6 +30,9 @@ export const StudentsPage = () => {
   const [result, setResult] = useState({ data: [], meta: { page: 1, size: PAGE_SIZE, total: 0 } })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [reloadKey, setReloadKey] = useState(0)
+  // Lần tải do realtime không bật loading để bảng không nhấp nháy.
+  const silentReload = useRef(false)
 
   // Chờ người dùng ngừng gõ rồi mới gọi API tìm kiếm.
   useEffect(() => {
@@ -41,18 +45,27 @@ export const StudentsPage = () => {
 
   useEffect(() => {
     const controller = new AbortController()
-    setLoading(true)
-    setError('')
+    const silent = silentReload.current
+    silentReload.current = false
+    if (!silent) {
+      setLoading(true)
+      setError('')
+    }
     getStudents({ page, size: PAGE_SIZE, search, status }, controller.signal)
       .then(setResult)
       .catch((cause) => {
-        if (!controller.signal.aborted) setError(getErrorMessage(cause, t))
+        if (!controller.signal.aborted && !silent) setError(getErrorMessage(cause, t))
       })
       .finally(() => {
         if (!controller.signal.aborted) setLoading(false)
       })
     return () => controller.abort()
-  }, [page, search, status, t])
+  }, [page, search, status, reloadKey, t])
+
+  useResourceUpdates(() => {
+    silentReload.current = true
+    setReloadKey((current) => current + 1)
+  }, ['student', 'enrollment', 'class'])
 
   const totalPages = Math.max(1, Math.ceil(result.meta.total / PAGE_SIZE))
   const columns = useMemo(

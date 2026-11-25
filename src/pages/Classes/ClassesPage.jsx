@@ -7,6 +7,7 @@ import { ClassDetailModal } from '../../components/Classes/ClassDetailModal.jsx'
 import { ClassesTable } from '../../components/Classes/ClassesTable.jsx'
 import { Card } from '../../components/Common/Card.jsx'
 import { getAcademicDirectory, getClassStudents } from '../../services/academicApi.js'
+import { useResourceUpdates } from '../../services/realtime.js'
 import { cn } from '../../utils/cn.js'
 
 const allCoursesOption = 'Tất cả khóa học'
@@ -43,6 +44,12 @@ export const ClassesPage = () => {
     loadClasses(controller.signal)
     return () => controller.abort()
   }, [loadClasses])
+
+  // Tải lại ngầm khi lớp/sĩ số thay đổi; lỗi giữ nguyên dữ liệu đang hiển thị.
+  useResourceUpdates(async () => {
+    const directory = await getAcademicDirectory()
+    setClasses(directory.classes)
+  }, ['course', 'class', 'class-staff', 'staff', 'class-weekly-schedule', 'class-room', 'room', 'enrollment'], !loading)
 
   useEffect(() => {
     if (!selectedClass?.id) return undefined

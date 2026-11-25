@@ -3,9 +3,12 @@ import { Outlet } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Header } from '../components/Layout/Header.jsx'
 import { Sidebar } from '../components/Layout/Sidebar.jsx'
+import { useUpdatesConnection } from '../services/realtime.js'
 
 export const MainLayout = () => {
   const [menuOpen, setMenuOpen] = useState(false)
+  // Một kết nối Socket.IO /updates cho mọi trang đã đăng nhập.
+  useUpdatesConnection()
 
   return (
     <div className="min-h-screen">

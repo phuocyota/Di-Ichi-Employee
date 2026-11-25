@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { Badge } from '../Common/Badge.jsx'
 import { getMyNotifications, markAllNotificationsRead, markNotificationRead } from '../../services/notificationsApi.js'
+import { useResourceUpdates } from '../../services/realtime.js'
 import { cn } from '../../utils/cn.js'
 import { NotificationDetailModal } from './NotificationDetailModal.jsx'
 
@@ -27,6 +28,9 @@ export const NotificationCenter = () => {
     loadNotifications(controller.signal)
     return () => controller.abort()
   }, [loadNotifications])
+
+  // Cập nhật chuông thông báo khi có thông báo mới hoặc đã đọc ở tab/thiết bị khác.
+  useResourceUpdates(() => loadNotifications(), ['notification', 'workspace', 'appointments', 'potential-candidates', 'work-shifts'])
 
   const setRead = (ids) =>
     setNotifications((current) => current.map((item) => (!ids || ids.includes(item.id) ? { ...item, unread: false } : item)))

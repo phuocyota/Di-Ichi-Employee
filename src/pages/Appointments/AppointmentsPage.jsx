@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { CalendarPlus } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -10,6 +10,7 @@ import { allAppointmentsOption, emptyAppointmentForm } from '../../components/Ap
 import { Button } from '../../components/Common/Button.jsx'
 import { appointmentStatuses, appointmentTypes } from '../../datas/appStaticData.js'
 import { useAppointments } from '../../contexts/useAppointments.js'
+import { useResourceUpdates } from '../../services/realtime.js'
 import {
   createAppointment,
   deleteAppointment as deleteAppointmentApi,
@@ -76,6 +77,8 @@ export const AppointmentsPage = () => {
   const [page, setPage] = useState(1)
   const [meta, setMeta] = useState({ page: 1, size: 20, total: 0 })
   const [reloadKey, setReloadKey] = useState(0)
+  // Lần tải do realtime không bật loading/toast để bảng không nhấp nháy.
+  const silentReload = useRef(false)
 
   const listParams = useMemo(() => ({
     q: keyword.trim() || undefined,
@@ -89,14 +92,16 @@ export const AppointmentsPage = () => {
 
   useEffect(() => {
     const controller = new AbortController()
+    const silent = silentReload.current
+    silentReload.current = false
     const timer = window.setTimeout(async () => {
-      setIsLoading(true)
+      if (!silent) setIsLoading(true)
       try {
         const result = await getAppointments(listParams, controller.signal)
         setAppointments(result.data.map(normalizeAppointment))
         setMeta(result.meta)
       } catch (error) {
-        if (error.code !== 'ERR_CANCELED') {
+        if (error.code !== 'ERR_CANCELED' && !silent) {
           toast.error(getApiErrorMessage(error, t('Không thể tải danh sách lịch hẹn.'), t))
         }
       } finally {
@@ -109,6 +114,11 @@ export const AppointmentsPage = () => {
       controller.abort()
     }
   }, [listParams, reloadKey, setAppointments, t])
+
+  useResourceUpdates(() => {
+    silentReload.current = true
+    setReloadKey((current) => current + 1)
+  }, ['appointments', 'potential-candidates'], !isSubmitting)
 
   useEffect(() => {
     const controller = new AbortController()

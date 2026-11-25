@@ -7,6 +7,7 @@ import { CourseCards } from '../../components/Courses/CourseCards.jsx'
 import { CourseDetailModal } from '../../components/Courses/CourseDetailModal.jsx'
 import { CoursesTable } from '../../components/Courses/CoursesTable.jsx'
 import { getAcademicDirectory } from '../../services/academicApi.js'
+import { useResourceUpdates } from '../../services/realtime.js'
 import { cn } from '../../utils/cn.js'
 
 const allAgesOption = 'Tất cả độ tuổi'
@@ -44,6 +45,13 @@ export const CoursesPage = () => {
     loadCourses(controller.signal)
     return () => controller.abort()
   }, [loadCourses])
+
+  // Tải lại ngầm khi khóa học/lớp thay đổi; lỗi giữ nguyên dữ liệu đang hiển thị.
+  useResourceUpdates(async () => {
+    const directory = await getAcademicDirectory()
+    setCourses(directory.courses)
+    setCourseClasses(directory.classes)
+  }, ['course', 'class', 'class-staff', 'staff', 'class-weekly-schedule', 'class-room', 'room', 'enrollment'], !loading)
 
   const ageOptions = useMemo(() => [...new Set(courses.map((course) => course.age).filter(Boolean))], [courses])
   const filteredCourses = useMemo(

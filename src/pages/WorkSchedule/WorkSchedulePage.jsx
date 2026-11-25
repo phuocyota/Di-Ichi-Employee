@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronLeft, ChevronRight, Clock, RefreshCw } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -6,6 +6,7 @@ import dayjs from 'dayjs'
 import { Badge } from '../../components/Common/Badge.jsx'
 import { Button } from '../../components/Common/Button.jsx'
 import { Card } from '../../components/Common/Card.jsx'
+import { useResourceUpdates } from '../../services/realtime.js'
 import { getMySchedule } from '../../services/workShiftApi.js'
 import { cn } from '../../utils/cn.js'
 
@@ -75,6 +76,17 @@ export const WorkSchedulePage = () => {
     load(controller.signal)
     return () => controller.abort()
   }, [load])
+
+  // Tải lại ngầm khi lịch ca thay đổi; bỏ kết quả nếu người dùng đã chuyển sang tuần khác.
+  const latestRange = useRef(range)
+  useEffect(() => {
+    latestRange.current = range
+  }, [range])
+  useResourceUpdates(async () => {
+    const requested = range
+    const next = await getMySchedule(requested)
+    if (latestRange.current === requested) setData(next)
+  }, ['work-shifts'], !loading)
 
   const today = data?.today || dayjs().format(DATE_FORMAT)
   const days = useMemo(

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -7,6 +7,7 @@ import { DashboardKpiCards } from '../../components/Dashboard/DashboardKpiCards.
 import { DashboardListCards } from '../../components/Dashboard/DashboardListCards.jsx'
 import { DashboardTasks } from '../../components/Dashboard/DashboardTasks.jsx'
 import { getDashboardOverview } from '../../services/dashboardApi.js'
+import { useResourceUpdates } from '../../services/realtime.js'
 
 const getBangkokDate = () => new Intl.DateTimeFormat('en-CA', {
   timeZone: 'Asia/Bangkok',
@@ -42,18 +43,25 @@ export const DashboardPage = () => {
   const [isLoading, setIsLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState('')
   const [reloadKey, setReloadKey] = useState(0)
+  // Lần tải do realtime không bật loading/toast.
+  const silentReload = useRef(false)
 
   useEffect(() => {
     const controller = new AbortController()
+    const silent = silentReload.current
+    silentReload.current = false
 
     const loadOverview = async () => {
-      setIsLoading(true)
-      setErrorMessage('')
+      if (!silent) {
+        setIsLoading(true)
+        setErrorMessage('')
+      }
       try {
         const data = await getDashboardOverview({ date: getBangkokDate() }, controller.signal)
         setOverview(data)
+        setErrorMessage('')
       } catch (error) {
-        if (error.code !== 'ERR_CANCELED') {
+        if (error.code !== 'ERR_CANCELED' && !silent) {
           const message = getApiErrorMessage(error)
           setErrorMessage(message)
           toast.error(message)
@@ -66,6 +74,12 @@ export const DashboardPage = () => {
     loadOverview()
     return () => controller.abort()
   }, [reloadKey])
+
+  // Tổng quan gom nhiều loại dữ liệu nên tải lại khi bất kỳ resource nào trong chi nhánh thay đổi.
+  useResourceUpdates(() => {
+    silentReload.current = true
+    setReloadKey((current) => current + 1)
+  })
 
   const kpis = useMemo(() => {
     const summary = overview?.summary
