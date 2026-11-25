@@ -10,3 +10,7 @@ export const checkInShift = async (assignmentId) =>
 
 export const checkOutShift = async (assignmentId) =>
   unwrap(await api.post(`/work-shifts/me/assignments/${encodeURIComponent(assignmentId)}/check-out`))
+
+// Lịch làm của chính nhân viên trong khoảng ngày YYYY-MM-DD (tối đa 62 ngày, giờ Việt Nam).
+export const getMySchedule = async ({ from, to }, signal) =>
+  unwrap(await api.get('/work-shifts/me/schedule', { params: { from, to }, signal }))

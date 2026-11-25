@@ -1,11 +1,12 @@
-import { useMemo, useState } from 'react'
-import { Filter, LayoutGrid, Search, Table } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Filter, LayoutGrid, RefreshCw, Search, Table } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
 import { ClassCards } from '../../components/Classes/ClassCards.jsx'
 import { ClassDetailModal } from '../../components/Classes/ClassDetailModal.jsx'
 import { ClassesTable } from '../../components/Classes/ClassesTable.jsx'
 import { Card } from '../../components/Common/Card.jsx'
-import { availableStudents, classes, classStudents } from '../../datas/employeePortalData.js'
+import { getAcademicDirectory, getClassStudents } from '../../services/academicApi.js'
 import { cn } from '../../utils/cn.js'
 
 const allCoursesOption = 'Tất cả khóa học'
@@ -16,6 +17,51 @@ export const ClassesPage = () => {
   const [classNameKeyword, setClassNameKeyword] = useState('')
   const [courseFilter, setCourseFilter] = useState(allCoursesOption)
   const [selectedClass, setSelectedClass] = useState(null)
+  const [classes, setClasses] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
+  const [selectedClassStudents, setSelectedClassStudents] = useState([])
+
+  const loadClasses = useCallback(async (signal) => {
+    setLoading(true)
+    setLoadError('')
+    try {
+      const directory = await getAcademicDirectory(signal)
+      setClasses(directory.classes)
+    } catch (error) {
+      if (signal?.aborted) return
+      const message = error.response?.data?.message || t('Không tải được danh sách lớp học.')
+      setLoadError(message)
+      toast.error(message)
+    } finally {
+      if (!signal?.aborted) setLoading(false)
+    }
+  }, [t])
+
+  useEffect(() => {
+    const controller = new AbortController()
+    loadClasses(controller.signal)
+    return () => controller.abort()
+  }, [loadClasses])
+
+  useEffect(() => {
+    if (!selectedClass?.id) return undefined
+
+    const controller = new AbortController()
+    getClassStudents(selectedClass.id, controller.signal)
+      .then(setSelectedClassStudents)
+      .catch((error) => {
+        if (controller.signal.aborted) return
+        toast.error(error.response?.data?.message || t('Không tải được danh sách học viên của lớp.'))
+      })
+    return () => controller.abort()
+  }, [selectedClass?.id, t])
+
+  const handleViewClass = (classItem) => {
+    setSelectedClassStudents([])
+    setSelectedClass(classItem)
+  }
+
   const courseOptions = useMemo(() => {
     const courseMap = new Map()
     classes.forEach((classItem) => {
@@ -25,28 +71,17 @@ export const ClassesPage = () => {
     })
 
     return [...courseMap.entries()].map(([code, name]) => ({ code, name }))
-  }, [])
+  }, [classes])
   const filteredClasses = useMemo(
     () =>
       classes.filter((classItem) => {
-        const matchesName = classItem.name.toLowerCase().includes(classNameKeyword.trim().toLowerCase())
+        const matchesName = String(classItem.name || '').toLowerCase().includes(classNameKeyword.trim().toLowerCase())
         const matchesCourse = courseFilter === allCoursesOption || classItem.courseCode === courseFilter
 
         return matchesName && matchesCourse
       }),
-    [classNameKeyword, courseFilter],
+    [classNameKeyword, classes, courseFilter],
   )
-  const selectedClassStudents = useMemo(() => {
-    if (!selectedClass) return []
-
-    return classStudents
-      .filter((classStudent) => classStudent.classId === selectedClass.id)
-      .map((classStudent) => ({
-        ...classStudent,
-        student: availableStudents.find((student) => student.id === classStudent.studentId),
-      }))
-  }, [selectedClass])
-
   return (
     <div className="space-y-5">
       <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
@@ -116,9 +151,19 @@ export const ClassesPage = () => {
         </div>
       </Card>
 
-      {viewMode === 'table'
-        ? <ClassesTable classes={filteredClasses} onView={setSelectedClass} />
-        : <ClassCards classes={filteredClasses} onView={setSelectedClass} />}
+      {loading ? (
+        <Card className="rounded-lg text-center text-sm font-semibold text-slate-500">{t('Đang tải danh sách lớp học...')}</Card>
+      ) : loadError ? (
+        <Card className="flex flex-col items-center gap-3 rounded-lg text-center text-sm font-semibold text-rose-600">
+          {loadError}
+          <button className="inline-flex items-center gap-2 rounded-lg px-3 py-2 font-black text-orange-600 hover:bg-orange-50" type="button" onClick={() => loadClasses()}>
+            <RefreshCw size={16} />
+            {t('Thử lại')}
+          </button>
+        </Card>
+      ) : viewMode === 'table'
+        ? <ClassesTable classes={filteredClasses} onView={handleViewClass} />
+        : <ClassCards classes={filteredClasses} onView={handleViewClass} />}
       {selectedClass && (
         <ClassDetailModal
           classItem={selectedClass}

@@ -69,7 +69,7 @@ export const CourseDetailModal = ({ classes, course, onAddStudent, onClose }) =>
                     <th className="px-4 py-3 font-black">Lịch học</th>
                     <th className="px-4 py-3 font-black">Sĩ số</th>
                     <th className="px-4 py-3 font-black">Phòng</th>
-                    <th className="px-4 py-3 font-black">Thêm học viên</th>
+                    {onAddStudent && <th className="px-4 py-3 font-black">Thêm học viên</th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-orange-50">
@@ -85,7 +85,7 @@ export const CourseDetailModal = ({ classes, course, onAddStudent, onClose }) =>
                         <td className="px-4 py-3 text-slate-700">{item.schedule}</td>
                         <td className="px-4 py-3"><Badge tone={hasSeat ? 'orange' : 'green'}>{item.students}</Badge></td>
                         <td className="px-4 py-3 text-slate-700">{item.room}</td>
-                        <td className="min-w-72 px-4 py-3">
+                        {onAddStudent && <td className="min-w-72 px-4 py-3">
                           {hasSeat ? (
                             <div className="grid min-w-[520px] gap-2 xl:grid-cols-[1fr_150px_120px_auto]">
                               <input className="h-10 rounded-lg border border-orange-100 px-3 text-sm outline-none focus:border-orange-300 focus:ring-4 focus:ring-orange-100" placeholder="Tên học viên" value={studentForm.name} onChange={(event) => updateStudentForm(item.id, 'name', event.target.value)} />
@@ -96,12 +96,12 @@ export const CourseDetailModal = ({ classes, course, onAddStudent, onClose }) =>
                           ) : (
                             <Badge tone="green">Đủ sĩ số</Badge>
                           )}
-                        </td>
+                        </td>}
                       </tr>
                     )
                   }) : (
                     <tr>
-                      <td className="px-4 py-5 text-center font-semibold text-slate-500" colSpan={6}>Chưa có lớp cho khóa học này</td>
+                      <td className="px-4 py-5 text-center font-semibold text-slate-500" colSpan={onAddStudent ? 6 : 5}>Chưa có lớp cho khóa học này</td>
                     </tr>
                   )}
                 </tbody>

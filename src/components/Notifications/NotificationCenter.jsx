@@ -1,37 +1,50 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Bell, BellRing, CheckCheck, ChevronRight } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
 import { Badge } from '../Common/Badge.jsx'
-import { notifications as notificationSeed } from '../../datas/notificationsData.js'
+import { getMyNotifications, markAllNotificationsRead, markNotificationRead } from '../../services/notificationsApi.js'
 import { cn } from '../../utils/cn.js'
 import { NotificationDetailModal } from './NotificationDetailModal.jsx'
 
 export const NotificationCenter = () => {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
-  const [readIds, setReadIds] = useState(() => {
-    try {
-      return JSON.parse(window.localStorage.getItem('di-ichi-read-notifications') || '[]')
-    } catch {
-      return []
-    }
-  })
+  const [notifications, setNotifications] = useState([])
   const [selectedNotification, setSelectedNotification] = useState(null)
-
-  const notifications = useMemo(
-    () => notificationSeed.map((item) => ({ ...item, unread: item.unread && !readIds.includes(item.id) })),
-    [readIds],
-  )
   const unreadCount = notifications.filter((item) => item.unread).length
 
-  const markAsRead = (notification) => {
+  const loadNotifications = useCallback(async (signal) => {
+    try {
+      setNotifications(await getMyNotifications(signal))
+    } catch {
+      // Lỗi tải thông báo không chặn header; lần mở popup sau sẽ thử lại.
+    }
+  }, [])
+
+  useEffect(() => {
+    const controller = new AbortController()
+    loadNotifications(controller.signal)
+    return () => controller.abort()
+  }, [loadNotifications])
+
+  const setRead = (ids) =>
+    setNotifications((current) => current.map((item) => (!ids || ids.includes(item.id) ? { ...item, unread: false } : item)))
+
+  const markAsRead = async (notification) => {
     if (!notification.unread) return
 
-    setReadIds((current) => {
-      const next = [...new Set([...current, notification.id])]
-      window.localStorage.setItem('di-ichi-read-notifications', JSON.stringify(next))
-      return next
-    })
+    setRead([notification.id])
+    try {
+      await markNotificationRead(notification.id)
+    } catch {
+      loadNotifications()
+    }
+  }
+
+  const handleToggle = () => {
+    if (!open) loadNotifications()
+    setOpen((current) => !current)
   }
 
   const handleOpenDetail = (notification) => {
@@ -40,10 +53,16 @@ export const NotificationCenter = () => {
     setOpen(false)
   }
 
-  const handleMarkAllAsRead = () => {
-    const next = notificationSeed.map((item) => item.id)
-    window.localStorage.setItem('di-ichi-read-notifications', JSON.stringify(next))
-    setReadIds(next)
+  const handleMarkAllAsRead = async () => {
+    if (!unreadCount) return
+
+    setRead(null)
+    try {
+      await markAllNotificationsRead()
+    } catch (error) {
+      toast.error(error.response?.data?.message || t('Không đánh dấu được thông báo đã đọc.'))
+      loadNotifications()
+    }
   }
 
   return (
@@ -54,7 +73,7 @@ export const NotificationCenter = () => {
         aria-expanded={open}
         aria-haspopup="dialog"
         type="button"
-        onClick={() => setOpen((current) => !current)}
+        onClick={handleToggle}
       >
         <Bell size={19} />
         {unreadCount > 0 && (
@@ -82,6 +101,9 @@ export const NotificationCenter = () => {
           </div>
 
           <div className="max-h-[26rem] overflow-y-auto p-2">
+            {!notifications.length && (
+              <p className="px-3 py-6 text-center text-sm font-semibold text-slate-500">{t('Chưa có thông báo')}</p>
+            )}
             {notifications.map((notification) => (
               <button
                 key={notification.id}

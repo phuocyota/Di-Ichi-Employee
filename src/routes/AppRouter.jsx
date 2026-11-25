@@ -10,6 +10,8 @@ import { ClassesPage } from '../pages/Classes/ClassesPage.jsx'
 import { PlacementTestsPage } from '../pages/PlacementTests/PlacementTestsPage.jsx'
 import { ProfilePage } from '../pages/Profile/ProfilePage.jsx'
 import { AttendancePage } from '../pages/Attendance/AttendancePage.jsx'
+import { WorkSchedulePage } from '../pages/WorkSchedule/WorkSchedulePage.jsx'
+import { StudentsPage } from '../pages/Students/StudentsPage.jsx'
 import { ProtectedRoute } from './ProtectedRoute.jsx'
 
 export const router = createBrowserRouter([
@@ -20,6 +22,7 @@ export const router = createBrowserRouter([
     children: [
       { path: '/dashboard', element: <DashboardPage /> },
       { path: '/cham-cong', element: <AttendancePage /> },
+      { path: '/lich-lam-viec', element: <WorkSchedulePage /> },
       { path: '/ung-vien-tiem-nang', element: <PotentialCandidatesPage /> },
       { path: '/crm-khach-hang', element: <Navigate to="/ung-vien-tiem-nang" replace /> },
       { path: '/lich-goi', element: <Navigate to="/ung-vien-tiem-nang" replace /> },
@@ -27,6 +30,7 @@ export const router = createBrowserRouter([
       { path: '/khoa-hoc', element: <CoursesPage /> },
       { path: '/dang-ky-khoa-hoc', element: <EnrollmentPage /> },
       { path: '/lop-hoc', element: <ClassesPage /> },
+      { path: '/hoc-vien', element: <StudentsPage /> },
       { path: '/kiem-tra-dau-vao', element: <PlacementTestsPage /> },
       { path: '/ho-so-ca-nhan', element: <ProfilePage /> },
     ],

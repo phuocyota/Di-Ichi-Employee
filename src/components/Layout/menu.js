@@ -1,7 +1,9 @@
 import {
   BookOpen,
+  CalendarClock,
   CalendarDays,
   ClipboardCheck,
+  Contact,
   Fingerprint,
   GraduationCap,
   LayoutDashboard,
@@ -13,8 +15,10 @@ import { menuItemData } from '../../datas/appStaticData.js'
 
 const menuIcons = {
   BookOpen,
+  CalendarClock,
   CalendarDays,
   ClipboardCheck,
+  Contact,
   Fingerprint,
   GraduationCap,
   LayoutDashboard,
