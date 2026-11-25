@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { RefreshCw } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
+import { CheckInPhotoDialog } from '../../components/Attendance/CheckInPhotoDialog.jsx'
 import { ShiftCheckCard } from '../../components/Attendance/ShiftCheckCard.jsx'
 import { Button } from '../../components/Common/Button.jsx'
 import { Card } from '../../components/Common/Card.jsx'
@@ -28,6 +29,8 @@ export const AttendancePage = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [busyId, setBusyId] = useState('')
+  // Ca đang mở hộp thoại chụp ảnh check-in.
+  const [photoShift, setPhotoShift] = useState(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -59,13 +62,23 @@ export const AttendancePage = () => {
     try {
       setData(await action(shift.id))
       toast.success(message)
+      return true
     } catch (cause) {
       toast.error(getApiErrorMessage(cause, t))
       // Tải lại để hiển thị trạng thái mới nhất (ví dụ quản trị viên vừa điều chỉnh công).
       load()
+      return false
     } finally {
       setBusyId('')
     }
+  }
+
+  // Gửi check-in kèm ảnh; thành công thì đóng hộp thoại, lỗi thì giữ lại để chụp/gửi lại.
+  const confirmCheckIn = async (photo) => {
+    const shift = photoShift
+    if (!shift) return
+    const done = await run(shift, (id) => checkInShift(id, photo), t('Đã check-in'))
+    if (done) setPhotoShift(null)
   }
 
   const shifts = data?.assignments || []
@@ -106,10 +119,18 @@ export const AttendancePage = () => {
           key={shift.id}
           shift={shift}
           busy={Boolean(busyId) || loading}
-          onCheckIn={(item) => run(item, checkInShift, t('Đã check-in'))}
+          onCheckIn={(item) => setPhotoShift(item)}
           onCheckOut={(item) => run(item, checkOutShift, t('Đã check-out'))}
         />
       ))}
+      {photoShift && (
+        <CheckInPhotoDialog
+          shift={photoShift}
+          busy={busyId === photoShift.id}
+          onCancel={() => setPhotoShift(null)}
+          onConfirm={confirmCheckIn}
+        />
+      )}
     </div>
   )
 }
