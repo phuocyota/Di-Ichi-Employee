@@ -25,3 +25,5 @@ dist-ssr
 
 AGENTS.md
 CLAUDE.md
+SESSION_SUMMARY.md
+yarn.lock
