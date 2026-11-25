@@ -438,6 +438,7 @@ const en = {
   'Chăm sóc lại': 'Re-nurture',
   'Gọi tư vấn': 'Counseling call',
   'Gọi lại': 'Call back',
+  'Phiên đăng nhập đã hết hiệu lực. Vui lòng đăng nhập lại.': 'Your session is no longer valid. Please sign in again.',
   'Đang làm việc': 'Active',
   'Ngừng hoạt động': 'Inactive',
   'Lịch hẹn sắp tới': 'Upcoming appointments',
