@@ -145,21 +145,23 @@ export const CheckInPhotoDialog = ({ shift, busy, requireReason = false, onCance
             </p>
           )}
 
-          {requireReason && (
-            <label className="block space-y-2 text-sm">
-              <span className="font-semibold text-slate-700">{t('Lý do check-in muộn')} <span className="text-rose-600">*</span></span>
+          {/* Luôn hiện ô lý do; chỉ bắt buộc khi check-in muộn theo giờ máy chủ. */}
+          <label className="block space-y-2 text-sm">
+              <span className="font-semibold text-slate-700">
+                {t('Lý do check-in muộn')}{' '}
+                {requireReason ? <span className="text-rose-600">*</span> : <span className="font-normal text-slate-400">({t('bắt buộc khi đi muộn')})</span>}
+              </span>
               <textarea
                 className="min-h-20 w-full rounded-xl border border-orange-100 px-3 py-2 text-slate-900 outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100"
                 value={reason}
                 maxLength={ATTENDANCE_REASON_MAX}
                 onChange={(event) => setReason(event.target.value)}
-                placeholder={t('Bạn đang check-in sau giờ bắt đầu ca, vui lòng nhập lý do')}
+                placeholder={requireReason ? t('Bạn đang check-in sau giờ bắt đầu ca, vui lòng nhập lý do') : t('Nhập lý do nếu bạn đến muộn')}
                 disabled={busy}
-                required
+                required={requireReason}
               />
               <span className="block text-right text-xs text-slate-400">{reason.length}/{ATTENDANCE_REASON_MAX}</span>
-            </label>
-          )}
+          </label>
 
           <input ref={fileInputRef} className="hidden" type="file" accept="image/*" capture="user" onChange={pickFile} />
 

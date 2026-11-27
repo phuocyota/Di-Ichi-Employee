@@ -36,8 +36,9 @@ export const AttendancePage = () => {
   const [photoShift, setPhotoShift] = useState(null)
   // Check-in muộn phải nhập lý do (tính khi mở hộp thoại, hoặc do máy chủ báo thiếu).
   const [checkInReasonRequired, setCheckInReasonRequired] = useState(false)
-  // Ca đang mở hộp thoại lý do check-out sớm.
+  // Ca đang mở hộp thoại check-out (luôn có ô lý do, bắt buộc khi về sớm).
   const [checkOutShiftItem, setCheckOutShiftItem] = useState(null)
+  const [checkOutReasonRequired, setCheckOutReasonRequired] = useState(false)
   // Lệch giữa đồng hồ máy chủ và máy nhân viên, để biết muộn/sớm theo giờ máy chủ.
   const clockOffsetRef = useRef(0)
 
@@ -112,14 +113,10 @@ export const AttendancePage = () => {
     if (done === 'reason') setCheckInReasonRequired(true)
   }
 
-  // Đúng giờ thì check-out ngay; sớm thì hỏi lý do trước.
-  const startCheckOut = async (shift) => {
-    if (isEarlyCheckOut(shift, serverNow())) {
-      setCheckOutShiftItem(shift)
-      return
-    }
-    const done = await run(shift, (id) => checkOutShift(id), t('Đã check-out'), 'check-out')
-    if (done === 'reason') setCheckOutShiftItem(shift)
+  // Luôn mở hộp thoại xác nhận check-out; về sớm thì lý do bắt buộc.
+  const startCheckOut = (shift) => {
+    setCheckOutReasonRequired(isEarlyCheckOut(shift, serverNow()))
+    setCheckOutShiftItem(shift)
   }
 
   const confirmCheckOut = async (reason) => {
@@ -127,6 +124,7 @@ export const AttendancePage = () => {
     if (!shift) return
     const done = await run(shift, (id) => checkOutShift(id, reason), t('Đã check-out'), 'check-out')
     if (done === true) setCheckOutShiftItem(null)
+    if (done === 'reason') setCheckOutReasonRequired(true)
   }
 
   const shifts = data?.assignments || []
@@ -184,6 +182,7 @@ export const AttendancePage = () => {
         <CheckOutReasonDialog
           shift={checkOutShiftItem}
           busy={busyId === checkOutShiftItem.id}
+          requireReason={checkOutReasonRequired}
           onCancel={() => setCheckOutShiftItem(null)}
           onConfirm={confirmCheckOut}
         />
