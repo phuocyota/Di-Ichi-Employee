@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Clock, LogIn, LogOut } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { getMyAttendancePhoto } from '../../services/workShiftApi.js'
+import { latestReason } from '../../utils/shiftDeviation.js'
 import { Badge } from '../Common/Badge.jsx'
 import { Button } from '../Common/Button.jsx'
 import { Card } from '../Common/Card.jsx'
@@ -55,6 +56,8 @@ export const ShiftCheckCard = ({ shift, busy, onCheckIn, onCheckOut }) => {
   const { t } = useTranslation()
   const status = shiftStatus(shift, t)
   const managedByAdmin = shift.attendance && shift.attendance.source !== 'self'
+  const checkInReason = latestReason(shift, 'check-in')
+  const checkOutReason = latestReason(shift, 'check-out')
 
   return (
     <Card className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -77,6 +80,22 @@ export const ShiftCheckCard = ({ shift, busy, onCheckIn, onCheckOut }) => {
           <p className="text-xs text-slate-500">
             {t('Mở check-in từ {{from}} đến {{to}}.', { from: formatTime(shift.checkInOpensAt), to: formatTime(shift.checkInClosesAt) })}
           </p>
+        )}
+        {(checkInReason || checkOutReason) && (
+          <dl className="space-y-1 text-sm">
+            {checkInReason && (
+              <div>
+                <dt className="inline text-slate-500">{t('Lý do check-in muộn')}: </dt>
+                <dd className="inline break-words text-slate-800">{checkInReason}</dd>
+              </div>
+            )}
+            {checkOutReason && (
+              <div>
+                <dt className="inline text-slate-500">{t('Lý do check-out sớm')}: </dt>
+                <dd className="inline break-words text-slate-800">{checkOutReason}</dd>
+              </div>
+            )}
+          </dl>
         )}
         {managedByAdmin && <p className="text-xs text-slate-500">{t('Ca đã được quản trị viên chấm công.')}</p>}
         {shift.attendance?.checkInPhotoId && <CheckInPhoto key={shift.attendance.checkInPhotoId} fileId={shift.attendance.checkInPhotoId} />}

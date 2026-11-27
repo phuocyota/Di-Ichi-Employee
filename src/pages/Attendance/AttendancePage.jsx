@@ -1,13 +1,15 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { RefreshCw } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { CheckInPhotoDialog } from '../../components/Attendance/CheckInPhotoDialog.jsx'
+import { CheckOutReasonDialog } from '../../components/Attendance/CheckOutReasonDialog.jsx'
 import { ShiftCheckCard } from '../../components/Attendance/ShiftCheckCard.jsx'
 import { Button } from '../../components/Common/Button.jsx'
 import { Card } from '../../components/Common/Card.jsx'
 import { useResourceUpdates } from '../../services/realtime.js'
 import { checkInShift, checkOutShift, getMyTodayShifts } from '../../services/workShiftApi.js'
+import { isEarlyCheckOut, isLateCheckIn, isMissingReasonError } from '../../utils/shiftDeviation.js'
 
 const getApiErrorMessage = (error, t) => {
   if (error.response?.status === 401) return t('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.')
@@ -32,23 +34,36 @@ export const AttendancePage = () => {
   const [busyId, setBusyId] = useState('')
   // Ca đang mở hộp thoại chụp ảnh check-in.
   const [photoShift, setPhotoShift] = useState(null)
+  // Check-in muộn phải nhập lý do (tính khi mở hộp thoại, hoặc do máy chủ báo thiếu).
+  const [checkInReasonRequired, setCheckInReasonRequired] = useState(false)
+  // Ca đang mở hộp thoại lý do check-out sớm.
+  const [checkOutShiftItem, setCheckOutShiftItem] = useState(null)
+  // Lệch giữa đồng hồ máy chủ và máy nhân viên, để biết muộn/sớm theo giờ máy chủ.
+  const clockOffsetRef = useRef(0)
+
+  const receive = useCallback((payload) => {
+    const serverMs = Date.parse(payload?.serverTime)
+    if (Number.isFinite(serverMs)) clockOffsetRef.current = serverMs - Date.now()
+    setData(payload)
+  }, [])
+  const serverNow = () => Date.now() + clockOffsetRef.current
 
   const load = useCallback(async () => {
     setLoading(true)
     setError('')
     try {
-      setData(await getMyTodayShifts())
+      receive(await getMyTodayShifts())
     } catch (cause) {
       setError(getApiErrorMessage(cause, t))
     } finally {
       setLoading(false)
     }
-  }, [t])
+  }, [receive, t])
 
   useEffect(() => {
     const controller = new AbortController()
     getMyTodayShifts(controller.signal)
-      .then(setData)
+      .then(receive)
       .catch((cause) => {
         if (!controller.signal.aborted) setError(getApiErrorMessage(cause, t))
       })
@@ -56,19 +71,25 @@ export const AttendancePage = () => {
         if (!controller.signal.aborted) setLoading(false)
       })
     return () => controller.abort()
-  }, [t])
+  }, [receive, t])
 
   // Quản trị viên phân ca/điều chỉnh công thì tải lại ngầm; tạm dừng khi đang check-in/check-out.
-  useResourceUpdates(async () => setData(await getMyTodayShifts()), ['work-shifts', 'attendance-record'], !busyId && !photoShift)
+  useResourceUpdates(
+    async () => receive(await getMyTodayShifts()),
+    ['work-shifts', 'attendance-record'],
+    !busyId && !photoShift && !checkOutShiftItem,
+  )
 
-  const run = async (shift, action, message) => {
+  // Trả về true khi thành công, 'reason' khi máy chủ báo thiếu lý do, false với lỗi khác.
+  const run = async (shift, action, message, reasonType) => {
     setBusyId(shift.id)
     try {
-      setData(await action(shift.id))
+      receive(await action(shift.id))
       toast.success(message)
       return true
     } catch (cause) {
       toast.error(getApiErrorMessage(cause, t))
+      if (reasonType && isMissingReasonError(cause, reasonType)) return 'reason'
       // Tải lại để hiển thị trạng thái mới nhất (ví dụ quản trị viên vừa điều chỉnh công).
       load()
       return false
@@ -77,12 +98,35 @@ export const AttendancePage = () => {
     }
   }
 
+  const openCheckIn = (shift) => {
+    setCheckInReasonRequired(isLateCheckIn(shift, serverNow()))
+    setPhotoShift(shift)
+  }
+
   // Gửi check-in kèm ảnh; thành công thì đóng hộp thoại, lỗi thì giữ lại để chụp/gửi lại.
-  const confirmCheckIn = async (photo) => {
+  const confirmCheckIn = async (photo, reason) => {
     const shift = photoShift
     if (!shift) return
-    const done = await run(shift, (id) => checkInShift(id, photo), t('Đã check-in'))
-    if (done) setPhotoShift(null)
+    const done = await run(shift, (id) => checkInShift(id, photo, reason), t('Đã check-in'), 'check-in')
+    if (done === true) setPhotoShift(null)
+    if (done === 'reason') setCheckInReasonRequired(true)
+  }
+
+  // Đúng giờ thì check-out ngay; sớm thì hỏi lý do trước.
+  const startCheckOut = async (shift) => {
+    if (isEarlyCheckOut(shift, serverNow())) {
+      setCheckOutShiftItem(shift)
+      return
+    }
+    const done = await run(shift, (id) => checkOutShift(id), t('Đã check-out'), 'check-out')
+    if (done === 'reason') setCheckOutShiftItem(shift)
+  }
+
+  const confirmCheckOut = async (reason) => {
+    const shift = checkOutShiftItem
+    if (!shift) return
+    const done = await run(shift, (id) => checkOutShift(id, reason), t('Đã check-out'), 'check-out')
+    if (done === true) setCheckOutShiftItem(null)
   }
 
   const shifts = data?.assignments || []
@@ -123,16 +167,25 @@ export const AttendancePage = () => {
           key={shift.id}
           shift={shift}
           busy={Boolean(busyId) || loading}
-          onCheckIn={(item) => setPhotoShift(item)}
-          onCheckOut={(item) => run(item, checkOutShift, t('Đã check-out'))}
+          onCheckIn={openCheckIn}
+          onCheckOut={startCheckOut}
         />
       ))}
       {photoShift && (
         <CheckInPhotoDialog
           shift={photoShift}
           busy={busyId === photoShift.id}
+          requireReason={checkInReasonRequired}
           onCancel={() => setPhotoShift(null)}
           onConfirm={confirmCheckIn}
+        />
+      )}
+      {checkOutShiftItem && (
+        <CheckOutReasonDialog
+          shift={checkOutShiftItem}
+          busy={busyId === checkOutShiftItem.id}
+          onCancel={() => setCheckOutShiftItem(null)}
+          onConfirm={confirmCheckOut}
         />
       )}
     </div>

@@ -2,6 +2,9 @@ import { Download, FileUp, Plus } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '../Common/Button.jsx'
 
+// Tạm ẩn Import/Export: backend chưa có `POST /potential-candidates/import` và `GET /potential-candidates/export`.
+const SHOW_FILE_ACTIONS = false
+
 export const PotentialCandidatesHeader = ({ onExport, onImportFile, onToggleForm }) => {
   const { t } = useTranslation()
 
@@ -14,11 +17,15 @@ export const PotentialCandidatesHeader = ({ onExport, onImportFile, onToggleForm
       </div>
       <div className="flex flex-wrap gap-2">
         <Button onClick={onToggleForm}><Plus size={18} /> {t('Thêm mới ứng viên')}</Button>
-        <label className="inline-flex min-h-10 cursor-pointer items-center justify-center gap-2 rounded-xl border border-orange-200 bg-white px-4 py-2 text-sm font-semibold text-orange-700 transition hover:bg-orange-50">
-          <FileUp size={18} /> Import
-          <input className="sr-only" type="file" accept=".csv,.json,application/json,text/csv" onChange={onImportFile} />
-        </label>
-        <Button variant="secondary" onClick={onExport}><Download size={18} /> Export</Button>
+        {SHOW_FILE_ACTIONS && (
+          <>
+            <label className="inline-flex min-h-10 cursor-pointer items-center justify-center gap-2 rounded-xl border border-orange-200 bg-white px-4 py-2 text-sm font-semibold text-orange-700 transition hover:bg-orange-50">
+              <FileUp size={18} /> Import
+              <input className="sr-only" type="file" accept=".csv,.json,application/json,text/csv" onChange={onImportFile} />
+            </label>
+            <Button variant="secondary" onClick={onExport}><Download size={18} /> Export</Button>
+          </>
+        )}
       </div>
     </div>
   )

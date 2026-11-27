@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Camera, ImageUp, LogIn, RotateCcw, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { ATTENDANCE_REASON_MAX } from '../../utils/shiftDeviation.js'
 import { Button } from '../Common/Button.jsx'
 
 // Ảnh được nén JPEG cạnh dài tối đa 1280 px trước khi gửi (server giới hạn 5 MB).
@@ -37,8 +38,9 @@ const cameraErrorMessage = (error, t) => {
 /**
  * Chụp ảnh check-in: ưu tiên camera trước (getUserMedia), xem lại rồi xác nhận.
  * Khi không dùng được camera thì cho chọn ảnh từ máy (`capture="user"` mở camera trên điện thoại).
+ * `requireReason`: check-in muộn theo giờ máy chủ, bắt buộc nhập lý do trước khi xác nhận.
  */
-export const CheckInPhotoDialog = ({ shift, busy, onCancel, onConfirm }) => {
+export const CheckInPhotoDialog = ({ shift, busy, requireReason = false, onCancel, onConfirm }) => {
   const { t } = useTranslation()
   const videoRef = useRef(null)
   const streamRef = useRef(null)
@@ -46,6 +48,8 @@ export const CheckInPhotoDialog = ({ shift, busy, onCancel, onConfirm }) => {
   const [cameraError, setCameraError] = useState('')
   const [ready, setReady] = useState(false)
   const [photo, setPhoto] = useState(null)
+  const [reason, setReason] = useState('')
+  const missingReason = requireReason && !reason.trim()
   const previewUrl = useMemo(() => (photo ? URL.createObjectURL(photo) : ''), [photo])
 
   const stopCamera = useCallback(() => {
@@ -141,6 +145,22 @@ export const CheckInPhotoDialog = ({ shift, busy, onCancel, onConfirm }) => {
             </p>
           )}
 
+          {requireReason && (
+            <label className="block space-y-2 text-sm">
+              <span className="font-semibold text-slate-700">{t('Lý do check-in muộn')} <span className="text-rose-600">*</span></span>
+              <textarea
+                className="min-h-20 w-full rounded-xl border border-orange-100 px-3 py-2 text-slate-900 outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100"
+                value={reason}
+                maxLength={ATTENDANCE_REASON_MAX}
+                onChange={(event) => setReason(event.target.value)}
+                placeholder={t('Bạn đang check-in sau giờ bắt đầu ca, vui lòng nhập lý do')}
+                disabled={busy}
+                required
+              />
+              <span className="block text-right text-xs text-slate-400">{reason.length}/{ATTENDANCE_REASON_MAX}</span>
+            </label>
+          )}
+
           <input ref={fileInputRef} className="hidden" type="file" accept="image/*" capture="user" onChange={pickFile} />
 
           <div className="flex flex-wrap justify-end gap-2">
@@ -150,7 +170,7 @@ export const CheckInPhotoDialog = ({ shift, busy, onCancel, onConfirm }) => {
                   <RotateCcw size={18} aria-hidden="true" />
                   {t('Chụp lại')}
                 </Button>
-                <Button disabled={busy} onClick={() => onConfirm(photo)}>
+                <Button disabled={busy || missingReason} onClick={() => onConfirm(photo, reason.trim())}>
                   <LogIn size={18} aria-hidden="true" />
                   {busy ? t('Đang check-in...') : t('Xác nhận check-in')}
                 </Button>
