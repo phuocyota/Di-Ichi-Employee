@@ -35,6 +35,8 @@ export const LoginCard = () => {
     try {
       const session = await loginStaff({ email: normalizedEmail, password: normalizedPassword })
       if (!session?.accessToken) throw new Error('INVALID_LOGIN_RESPONSE')
+      // Nhân sự HRM chi nhánh chỉ dùng ứng dụng HRM; backend cũng chặn mọi API khác của loại tài khoản này.
+      if (session.userType === 'HRM') throw new Error('HRM_ACCOUNT')
 
       saveAuthSession({
         accessToken: session.accessToken,
@@ -52,7 +54,9 @@ export const LoginCard = () => {
       const backendMessage = error.response?.data?.error?.message || error.response?.data?.message
       const description = error.response?.status === 401
         ? t('Email hoặc mật khẩu không đúng.')
-        : backendMessage || (error.message === 'INVALID_LOGIN_RESPONSE'
+        : error.message === 'HRM_ACCOUNT'
+          ? t('Tài khoản nhân sự HRM chỉ đăng nhập được ứng dụng HRM.')
+          : backendMessage || (error.message === 'INVALID_LOGIN_RESPONSE'
           ? t('Phản hồi đăng nhập không có access token.')
           : error.response ? t('Không thể đăng nhập. Vui lòng thử lại.') : t('Không thể kết nối máy chủ.'))
       toast.error(t('Đăng nhập thất bại'), { description })

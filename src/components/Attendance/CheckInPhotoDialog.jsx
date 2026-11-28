@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Camera, ImageUp, LogIn, RotateCcw, X } from 'lucide-react'
+import { Camera, ImageUp, LogIn, LogOut, RotateCcw, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { ATTENDANCE_REASON_MAX } from '../../utils/shiftDeviation.js'
 import { Button } from '../Common/Button.jsx'
@@ -35,13 +35,39 @@ const cameraErrorMessage = (error, t) => {
   return t('Không mở được camera. Vui lòng thử lại hoặc chọn ảnh từ máy.')
 }
 
+// Nhãn theo loại chấm công; check-in và check-out đều bắt buộc ảnh chụp tại chỗ.
+const MODE_TEXT = {
+  'check-in': {
+    title: 'Chụp ảnh check-in',
+    reasonLabel: 'Lý do check-in muộn',
+    reasonHint: 'bắt buộc khi đi muộn',
+    reasonRequiredPlaceholder: 'Bạn đang check-in sau giờ bắt đầu ca, vui lòng nhập lý do',
+    reasonPlaceholder: 'Nhập lý do nếu bạn đến muộn',
+    photoAlt: 'Ảnh check-in vừa chụp',
+    confirm: 'Xác nhận check-in',
+    busy: 'Đang check-in...',
+  },
+  'check-out': {
+    title: 'Chụp ảnh check-out',
+    reasonLabel: 'Lý do check-out sớm',
+    reasonHint: 'bắt buộc khi về sớm',
+    reasonRequiredPlaceholder: 'Bạn đang check-out trước giờ kết thúc ca, vui lòng nhập lý do',
+    reasonPlaceholder: 'Nhập lý do nếu bạn về sớm',
+    photoAlt: 'Ảnh check-out vừa chụp',
+    confirm: 'Xác nhận check-out',
+    busy: 'Đang check-out...',
+  },
+}
+
 /**
- * Chụp ảnh check-in: ưu tiên camera trước (getUserMedia), xem lại rồi xác nhận.
+ * Chụp ảnh check-in/check-out: ưu tiên camera trước (getUserMedia), xem lại rồi xác nhận.
  * Khi không dùng được camera thì cho chọn ảnh từ máy (`capture="user"` mở camera trên điện thoại).
- * `requireReason`: check-in muộn theo giờ máy chủ, bắt buộc nhập lý do trước khi xác nhận.
+ * `requireReason`: check-in muộn / check-out sớm theo giờ máy chủ, bắt buộc nhập lý do trước khi xác nhận.
  */
-export const CheckInPhotoDialog = ({ shift, busy, requireReason = false, onCancel, onConfirm }) => {
+export const CheckInPhotoDialog = ({ shift, busy, mode = 'check-in', requireReason = false, onCancel, onConfirm }) => {
   const { t } = useTranslation()
+  const text = MODE_TEXT[mode]
+  const ConfirmIcon = mode === 'check-out' ? LogOut : LogIn
   const videoRef = useRef(null)
   const streamRef = useRef(null)
   const fileInputRef = useRef(null)
@@ -115,11 +141,11 @@ export const CheckInPhotoDialog = ({ shift, busy, requireReason = false, onCance
   }
 
   return (
-    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/40 p-4" role="dialog" aria-modal="true" aria-label={t('Chụp ảnh check-in')}>
+    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/40 p-4" role="dialog" aria-modal="true" aria-label={t(text.title)}>
       <section className="relative w-full max-w-md overflow-hidden rounded-2xl border border-orange-100 bg-white shadow-2xl shadow-slate-950/20">
         <div className="flex items-start justify-between gap-4 border-b border-orange-100 px-5 py-4">
           <div>
-            <h2 className="text-lg font-black text-slate-950">{t('Chụp ảnh check-in')}</h2>
+            <h2 className="text-lg font-black text-slate-950">{t(text.title)}</h2>
             <p className="mt-1 text-sm text-slate-500">
               {shift.shiftName || t('Ca làm')} · {shift.start} – {shift.end}
             </p>
@@ -133,7 +159,7 @@ export const CheckInPhotoDialog = ({ shift, busy, requireReason = false, onCance
           <div className="relative aspect-[3/4] w-full overflow-hidden rounded-xl bg-slate-900">
             {/* Luôn giữ <video> trong DOM để "Chụp lại" gắn được stream mới ngay. */}
             <video ref={videoRef} className={`h-full w-full -scale-x-100 object-cover ${photo ? 'hidden' : ''}`} playsInline muted autoPlay />
-            {photo && previewUrl && <img className="h-full w-full object-cover" src={previewUrl} alt={t('Ảnh check-in vừa chụp')} />}
+            {photo && previewUrl && <img className="h-full w-full object-cover" src={previewUrl} alt={t(text.photoAlt)} />}
             {!photo && !ready && !cameraError && (
               <p className="absolute inset-0 grid place-items-center text-sm text-white/80">{t('Đang mở camera...')}</p>
             )}
@@ -145,18 +171,18 @@ export const CheckInPhotoDialog = ({ shift, busy, requireReason = false, onCance
             </p>
           )}
 
-          {/* Luôn hiện ô lý do; chỉ bắt buộc khi check-in muộn theo giờ máy chủ. */}
+          {/* Luôn hiện ô lý do; chỉ bắt buộc khi muộn/sớm theo giờ máy chủ. */}
           <label className="block space-y-2 text-sm">
               <span className="font-semibold text-slate-700">
-                {t('Lý do check-in muộn')}{' '}
-                {requireReason ? <span className="text-rose-600">*</span> : <span className="font-normal text-slate-400">({t('bắt buộc khi đi muộn')})</span>}
+                {t(text.reasonLabel)}{' '}
+                {requireReason ? <span className="text-rose-600">*</span> : <span className="font-normal text-slate-400">({t(text.reasonHint)})</span>}
               </span>
               <textarea
                 className="min-h-20 w-full rounded-xl border border-orange-100 px-3 py-2 text-slate-900 outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100"
                 value={reason}
                 maxLength={ATTENDANCE_REASON_MAX}
                 onChange={(event) => setReason(event.target.value)}
-                placeholder={requireReason ? t('Bạn đang check-in sau giờ bắt đầu ca, vui lòng nhập lý do') : t('Nhập lý do nếu bạn đến muộn')}
+                placeholder={requireReason ? t(text.reasonRequiredPlaceholder) : t(text.reasonPlaceholder)}
                 disabled={busy}
                 required={requireReason}
               />
@@ -173,8 +199,8 @@ export const CheckInPhotoDialog = ({ shift, busy, requireReason = false, onCance
                   {t('Chụp lại')}
                 </Button>
                 <Button disabled={busy || missingReason} onClick={() => onConfirm(photo, reason.trim())}>
-                  <LogIn size={18} aria-hidden="true" />
-                  {busy ? t('Đang check-in...') : t('Xác nhận check-in')}
+                  <ConfirmIcon size={18} aria-hidden="true" />
+                  {busy ? t(text.busy) : t(text.confirm)}
                 </Button>
               </>
             ) : (

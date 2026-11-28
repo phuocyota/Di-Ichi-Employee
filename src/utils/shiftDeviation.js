@@ -23,6 +23,10 @@ export const isEarlyCheckOut = (shift, nowMs) => Math.ceil((shiftBounds(shift).e
 export const latestReason = (shift, type) =>
   [...(shift.checks || [])].reverse().find((check) => check.type === type && check.reason)?.reason || ''
 
+/** Ảnh của lần check gần nhất theo loại (ảnh check-out chỉ có trong `shift.checks`). */
+export const latestCheckPhotoId = (shift, type) =>
+  [...(shift.checks || [])].reverse().find((check) => check.type === type && check.photoId)?.photoId || ''
+
 /** Backend báo thiếu lý do (giờ máy lệch với máy chủ nên UI chưa hỏi lý do). */
 export const isMissingReasonError = (error, type) => {
   const message = error?.response?.data?.message

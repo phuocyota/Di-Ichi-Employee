@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Clock, LogIn, LogOut } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { getMyAttendancePhoto } from '../../services/workShiftApi.js'
-import { latestReason } from '../../utils/shiftDeviation.js'
+import { latestCheckPhotoId, latestReason } from '../../utils/shiftDeviation.js'
 import { Badge } from '../Common/Badge.jsx'
 import { Button } from '../Common/Button.jsx'
 import { Card } from '../Common/Card.jsx'
@@ -20,8 +20,8 @@ const shiftStatus = (shift, t) => {
   return { label: t('Chưa chấm công'), tone: 'slate' }
 }
 
-// Ảnh check-in cần Bearer token: tải blob rồi hiển thị qua object URL, thu hồi khi unmount (đổi ảnh thì remount theo key).
-const CheckInPhoto = ({ fileId }) => {
+// Ảnh chấm công cần Bearer token: tải blob rồi hiển thị qua object URL, thu hồi khi unmount (đổi ảnh thì remount theo key).
+const AttendancePhoto = ({ fileId, label }) => {
   const { t } = useTranslation()
   const [url, setUrl] = useState('')
   const [failed, setFailed] = useState(false)
@@ -43,12 +43,15 @@ const CheckInPhoto = ({ fileId }) => {
     }
   }, [fileId])
 
-  if (failed) return <p className="text-xs text-slate-500">{t('Không tải được ảnh check-in.')}</p>
+  if (failed) return <p className="text-xs text-slate-500">{t('Không tải được ảnh {{label}}.', { label })}</p>
   if (!url) return <div className="h-20 w-16 animate-pulse rounded-lg bg-orange-50" aria-hidden="true" />
   return (
-    <a href={url} target="_blank" rel="noreferrer" className="block w-fit" title={t('Xem ảnh check-in')}>
-      <img className="h-20 w-16 rounded-lg border border-orange-100 object-cover" src={url} alt={t('Ảnh check-in')} />
-    </a>
+    <figure className="w-fit space-y-1">
+      <a href={url} target="_blank" rel="noreferrer" className="block w-fit" title={t('Xem ảnh {{label}}', { label })}>
+        <img className="h-20 w-16 rounded-lg border border-orange-100 object-cover" src={url} alt={t('Ảnh {{label}}', { label })} />
+      </a>
+      <figcaption className="text-center text-xs text-slate-500">{label}</figcaption>
+    </figure>
   )
 }
 
@@ -58,6 +61,8 @@ export const ShiftCheckCard = ({ shift, busy, onCheckIn, onCheckOut }) => {
   const managedByAdmin = shift.attendance && shift.attendance.source !== 'self'
   const checkInReason = latestReason(shift, 'check-in')
   const checkOutReason = latestReason(shift, 'check-out')
+  const checkInPhotoId = shift.attendance?.checkInPhotoId || latestCheckPhotoId(shift, 'check-in')
+  const checkOutPhotoId = latestCheckPhotoId(shift, 'check-out')
 
   return (
     <Card className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -98,7 +103,12 @@ export const ShiftCheckCard = ({ shift, busy, onCheckIn, onCheckOut }) => {
           </dl>
         )}
         {managedByAdmin && <p className="text-xs text-slate-500">{t('Ca đã được quản trị viên chấm công.')}</p>}
-        {shift.attendance?.checkInPhotoId && <CheckInPhoto key={shift.attendance.checkInPhotoId} fileId={shift.attendance.checkInPhotoId} />}
+        {(checkInPhotoId || checkOutPhotoId) && (
+          <div className="flex gap-3">
+            {checkInPhotoId && <AttendancePhoto key={checkInPhotoId} fileId={checkInPhotoId} label="Check-in" />}
+            {checkOutPhotoId && <AttendancePhoto key={checkOutPhotoId} fileId={checkOutPhotoId} label="Check-out" />}
+          </div>
+        )}
       </div>
       <div className="flex gap-2">
         <Button disabled={busy || !shift.canCheckIn} onClick={() => onCheckIn(shift)}>

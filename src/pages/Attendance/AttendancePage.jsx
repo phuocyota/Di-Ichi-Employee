@@ -3,7 +3,6 @@ import { RefreshCw } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { CheckInPhotoDialog } from '../../components/Attendance/CheckInPhotoDialog.jsx'
-import { CheckOutReasonDialog } from '../../components/Attendance/CheckOutReasonDialog.jsx'
 import { ShiftCheckCard } from '../../components/Attendance/ShiftCheckCard.jsx'
 import { Button } from '../../components/Common/Button.jsx'
 import { Card } from '../../components/Common/Card.jsx'
@@ -32,13 +31,10 @@ export const AttendancePage = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [busyId, setBusyId] = useState('')
-  // Ca đang mở hộp thoại chụp ảnh check-in.
-  const [photoShift, setPhotoShift] = useState(null)
-  // Check-in muộn phải nhập lý do (tính khi mở hộp thoại, hoặc do máy chủ báo thiếu).
-  const [checkInReasonRequired, setCheckInReasonRequired] = useState(false)
-  // Ca đang mở hộp thoại check-out (luôn có ô lý do, bắt buộc khi về sớm).
-  const [checkOutShiftItem, setCheckOutShiftItem] = useState(null)
-  const [checkOutReasonRequired, setCheckOutReasonRequired] = useState(false)
+  // Hộp thoại chụp ảnh đang mở: { shift, mode: 'check-in' | 'check-out' }.
+  const [photoAction, setPhotoAction] = useState(null)
+  // Check-in muộn / check-out sớm phải nhập lý do (tính khi mở hộp thoại, hoặc do máy chủ báo thiếu).
+  const [reasonRequired, setReasonRequired] = useState(false)
   // Lệch giữa đồng hồ máy chủ và máy nhân viên, để biết muộn/sớm theo giờ máy chủ.
   const clockOffsetRef = useRef(0)
 
@@ -78,7 +74,7 @@ export const AttendancePage = () => {
   useResourceUpdates(
     async () => receive(await getMyTodayShifts()),
     ['work-shifts', 'attendance-record'],
-    !busyId && !photoShift && !checkOutShiftItem,
+    !busyId && !photoAction,
   )
 
   // Trả về true khi thành công, 'reason' khi máy chủ báo thiếu lý do, false với lỗi khác.
@@ -99,32 +95,22 @@ export const AttendancePage = () => {
     }
   }
 
-  const openCheckIn = (shift) => {
-    setCheckInReasonRequired(isLateCheckIn(shift, serverNow()))
-    setPhotoShift(shift)
+  // Check-in và check-out đều mở hộp thoại chụp ảnh, kèm ô lý do (bắt buộc khi muộn/sớm).
+  const openPhoto = (shift, mode) => {
+    const now = serverNow()
+    setReasonRequired(mode === 'check-in' ? isLateCheckIn(shift, now) : isEarlyCheckOut(shift, now))
+    setPhotoAction({ shift, mode })
   }
 
-  // Gửi check-in kèm ảnh; thành công thì đóng hộp thoại, lỗi thì giữ lại để chụp/gửi lại.
-  const confirmCheckIn = async (photo, reason) => {
-    const shift = photoShift
-    if (!shift) return
-    const done = await run(shift, (id) => checkInShift(id, photo, reason), t('Đã check-in'), 'check-in')
-    if (done === true) setPhotoShift(null)
-    if (done === 'reason') setCheckInReasonRequired(true)
-  }
-
-  // Luôn mở hộp thoại xác nhận check-out; về sớm thì lý do bắt buộc.
-  const startCheckOut = (shift) => {
-    setCheckOutReasonRequired(isEarlyCheckOut(shift, serverNow()))
-    setCheckOutShiftItem(shift)
-  }
-
-  const confirmCheckOut = async (reason) => {
-    const shift = checkOutShiftItem
-    if (!shift) return
-    const done = await run(shift, (id) => checkOutShift(id, reason), t('Đã check-out'), 'check-out')
-    if (done === true) setCheckOutShiftItem(null)
-    if (done === 'reason') setCheckOutReasonRequired(true)
+  // Gửi kèm ảnh; thành công thì đóng hộp thoại, lỗi thì giữ lại để chụp/gửi lại.
+  const confirmPhoto = async (photo, reason) => {
+    if (!photoAction) return
+    const { shift, mode } = photoAction
+    const done = mode === 'check-in'
+      ? await run(shift, (id) => checkInShift(id, photo, reason), t('Đã check-in'), mode)
+      : await run(shift, (id) => checkOutShift(id, photo, reason), t('Đã check-out'), mode)
+    if (done === true) setPhotoAction(null)
+    if (done === 'reason') setReasonRequired(true)
   }
 
   const shifts = data?.assignments || []
@@ -165,26 +151,19 @@ export const AttendancePage = () => {
           key={shift.id}
           shift={shift}
           busy={Boolean(busyId) || loading}
-          onCheckIn={openCheckIn}
-          onCheckOut={startCheckOut}
+          onCheckIn={(item) => openPhoto(item, 'check-in')}
+          onCheckOut={(item) => openPhoto(item, 'check-out')}
         />
       ))}
-      {photoShift && (
+      {photoAction && (
         <CheckInPhotoDialog
-          shift={photoShift}
-          busy={busyId === photoShift.id}
-          requireReason={checkInReasonRequired}
-          onCancel={() => setPhotoShift(null)}
-          onConfirm={confirmCheckIn}
-        />
-      )}
-      {checkOutShiftItem && (
-        <CheckOutReasonDialog
-          shift={checkOutShiftItem}
-          busy={busyId === checkOutShiftItem.id}
-          requireReason={checkOutReasonRequired}
-          onCancel={() => setCheckOutShiftItem(null)}
-          onConfirm={confirmCheckOut}
+          key={`${photoAction.shift.id}-${photoAction.mode}`}
+          shift={photoAction.shift}
+          mode={photoAction.mode}
+          busy={busyId === photoAction.shift.id}
+          requireReason={reasonRequired}
+          onCancel={() => setPhotoAction(null)}
+          onConfirm={confirmPhoto}
         />
       )}
     </div>
